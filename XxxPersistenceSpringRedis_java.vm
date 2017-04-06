@@ -1,0 +1,147 @@
+#checkId($entity)
+#parse("include/init_var_global.vm")
+#parse("include/init_var_entity.vm")
+#parse("include/java_header.vm")
+package ${target.javaPackageFromFolder($SRC)};
+
+import java.util.ArrayList;
+import java.util.List;
+
+#foreach( $import in $java.imports($entity.keyAttributes) )
+import $import;
+#end
+
+import javax.inject.Named;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.redis.core.RedisOperations;
+#if( $entity.hasAutoIncrementedKey() )
+import org.springframework.data.redis.support.atomic.RedisAtomicLong;
+#end
+
+import ${recordPackage}.${recordClass};
+import ${ROOT_PKG}.persistence.${persistenceService};
+
+/**
+ * ${entity.name} persistence service - SpringRedis implementation 
+ * 
+ * @author Telosys
+ *
+ */
+@Named("${persistenceService}")
+public class $springRedisServiceClass implements $persistenceService {
+
+	@Autowired
+	private RedisOperations<String,Object> redisOps;
+	private static final String KEY = "${entity.name}";
+#if( $entity.hasAutoIncrementedKey() )
+	@Autowired
+	private RedisAtomicLong ${entity.name}Counter;
+
+	public $springRedisServiceClass(RedisOperations<String,Object> redisOps, RedisAtomicLong ${entity.name}Counter) {
+		this.redisOps = redisOps;
+		this.${entity.name}Counter= ${entity.name}Counter;
+	}
+#else
+	public $springRedisServiceClass(RedisOperations<String,Object> redisOps) {
+		this.redisOps = redisOps;
+	}
+#end
+	// -------------------------------------------------------------------------------------
+	// Persistence interface implementations
+	// -------------------------------------------------------------------------------------
+	/**
+	 * Creates a new bean instance and set its primary key value(s)
+	 * 
+#foreach( $field in $keyFields )
+	 * @param ${field.name}
+#end
+	 * @return the new instance
+	 */
+	private ${recordClass} newInstanceWithPrimaryKey($fn.argumentsListWithType($keyFields)) {
+		${recordClass} record = new ${recordClass}();
+#foreach( $field in $keyFields )
+        record.${field.setter}(${field.name}); 
+#end
+		return record;
+	}
+
+	private String buildRedisKey(${recordClass} record) {
+		return "${entity.name} :" + record.${keyFields.get(0).getter}().toString()#foreach($field in $keyFields)#if($field != ${keyFields.get(0)})+"|"+record.${field.getter}().toString()#end #end;
+	}
+	//-------------------------------------------------------------------------------------
+	// Persistence interface implementations
+	//-------------------------------------------------------------------------------------
+	@Override
+	public long countAll() {
+		return redisOps.opsForHash().size(KEY);
+	}
+	
+	@Override
+	public ${recordClass} create(${recordClass} record) {
+#if( $entity.hasAutoIncrementedKey() )
+		${entity.autoincrementedKeyAttribute.databaseType} ${entity.autoincrementedKeyAttribute.name} = ${entity.name}Counter.incrementAndGet();
+		record.${entity.autoincrementedKeyAttribute.databaseType.setter}(${entity.autoincrementedKeyAttribute.name});
+#end
+		String key = buildRedisKey(record);
+		redisOps.opsForHash().put(KEY, key, record);
+		return record;
+	}
+
+	@Override
+	public boolean delete(${recordClass} record) {
+		String key = buildRedisKey(record);
+		long r = redisOps.opsForHash().delete(KEY, key);
+		return r > 0;
+	}
+
+	@Override
+	public boolean deleteById($fn.argumentsListWithWrapperType($keyFields)) {
+		${recordClass} record = newInstanceWithPrimaryKey($fn.argumentsList($keyFields));
+		String key = buildRedisKey(record);
+		long r = redisOps.opsForHash().delete(KEY, key);
+		return r > 0;
+	}
+
+	@Override
+	public boolean exists(${recordClass} record) {
+		String key = buildRedisKey(record);
+		return redisOps.opsForHash().hasKey(KEY, key);
+	}
+
+	@Override
+	public boolean exists($fn.argumentsListWithWrapperType($keyFields)) {
+		${recordClass} record = newInstanceWithPrimaryKey($fn.argumentsList($keyFields));
+		String key = buildRedisKey(record);
+		return redisOps.opsForHash().hasKey(KEY, key);
+	}
+
+	@Override
+	public List<${recordClass}> findAll() {
+		List<${recordClass}> recordList = new ArrayList<${recordClass}>();
+		for (Object o : redisOps.opsForHash().values(KEY)) {
+			recordList.add((${recordClass}) o);
+		}
+		return recordList;
+	}
+
+	@Override
+	public ${recordClass} findById($fn.argumentsListWithWrapperType($keyFields)) {
+        ${recordClass} record = newInstanceWithPrimaryKey($fn.argumentsList($keyFields));
+		String key = buildRedisKey(record);
+		return (${recordClass}) redisOps.opsForHash().get(KEY, key);
+	}
+
+	@Override
+	public ${recordClass} save(${recordClass} record) {
+		String key = buildRedisKey(record);
+		redisOps.opsForHash().put(KEY,key, record);
+		return record;
+	}
+
+	@Override
+	public boolean update(${recordClass} record) {
+		String key = buildRedisKey(record);
+		redisOps.opsForHash().put(KEY, key, record);
+		return true;
+	}
+}

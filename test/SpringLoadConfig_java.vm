@@ -1,0 +1,19 @@
+package ${target.javaPackageFromFolder($TEST_SRC)};
+
+import org.springframework.context.ApplicationContext;
+import org.springframework.context.annotation.AnnotationConfigApplicationContext;
+import org.springframework.data.redis.core.RedisTemplate;
+import org.springframework.data.redis.support.atomic.RedisAtomicLong;
+
+@SuppressWarnings("unchecked")
+public class SpringLoadConfig {
+	private static ApplicationContext ctx = new AnnotationConfigApplicationContext(SpringRedisConfig.class);
+	
+	public static RedisTemplate<String, Object> getRedistemplate() {
+		return (RedisTemplate<String, Object>) ctx.getBean("redisTemplate");
+	}
+	
+	public static RedisAtomicLong getRedisAtomicLong() {
+		return (RedisAtomicLong) ctx.getBean("redisAtomicLong");
+	}
+}

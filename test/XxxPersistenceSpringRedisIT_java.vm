@@ -1,0 +1,49 @@
+
+package ${target.javaPackageFromFolder($TEST_SRC)};
+
+import org.demo.persistence.${entity.name}Persistence ;
+import org.demo.persistence.${entity.name}PersistenceGenericTest;
+import org.demo.persistence.impl.springRedis.commons.SpringLoadConfig;
+import org.junit.After;
+import org.junit.Before;
+import org.junit.Test;
+import org.springframework.data.redis.core.RedisTemplate;
+
+
+/**
+ * JUnit tests for Car persistence service
+ * 
+ * @author Telosys Tools
+ *
+ */
+public class ${entity.name}PersistenceSpringRedisIT extends ${entity.name}PersistenceGenericTest {
+    
+	private ${entity.name}Persistence persistenceService;
+	private RedisTemplate<String, Object> redisTemplate;
+	private static final String KEY = "${entity.name}";
+#if( $entity.hasAutoIncrementedKey() )
+	private RedisAtomicLong redisAt ;
+#end
+
+	@Before
+	public void setUp() throws Exception {
+		redisTemplate = SpringLoadConfig.getRedistemplate();
+#if( $entity.hasAutoIncrementedKey() )
+		redisAt= SpringLoadConfig.getRedisAtomicLong();
+		persistenceService = new ${entity.name}PersistenceRedis(redisTemplate,redisAt);
+#else
+		persistenceService = new ${entity.name}PersistenceSpringRedis(redisTemplate);
+#end
+	}
+
+	@After
+	public void tearDown() throws Exception {
+		redisTemplate.delete(KEY);
+	}
+
+	@Test
+	public void testPersistenceService() throws Exception {
+    	testPersistenceService(persistenceService);
+	}
+}
+
