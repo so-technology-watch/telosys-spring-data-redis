@@ -13,7 +13,7 @@ import $import;
 
 import javax.inject.Named;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.data.redis.core.RedisOperations;
+import org.springframework.data.redis.core.RedisTemplate;
 #if( $entity.hasAutoIncrementedKey() )
 import org.springframework.data.redis.support.atomic.RedisAtomicLong;
 #end
@@ -31,23 +31,25 @@ import ${ROOT_PKG}.persistence.${persistenceService};
 public class $springRedisServiceClass implements $persistenceService {
 
 	@Autowired
-	private RedisOperations<String,Object> redisOps;
+	private RedisTemplate<String,Object> redisTemplate;
 	private static final String KEY = "${entity.name}";
 #if( $entity.hasAutoIncrementedKey() )
 	@Autowired
-	private RedisAtomicLong ${entity.name}Counter;
-
-	public $springRedisServiceClass(RedisOperations<String,Object> redisOps, RedisAtomicLong ${entity.name}Counter) {
-		this.redisOps = redisOps;
-		this.${entity.name}Counter= ${entity.name}Counter;
+	private RedisAtomicLong counter${entity.name};
+#end
+    //----------------------------------------------------------------------
+    // SETTER(S) FOR OTHER DATA FIELDS 
+    //----------------------------------------------------------------------
+	public void setRedisTemplate(RedisTemplate<String, Object> redisTemplate) {
+		this.redisTemplate = redisTemplate;
 	}
-#else
-	public $springRedisServiceClass(RedisOperations<String,Object> redisOps) {
-		this.redisOps = redisOps;
+#if( $entity.hasAutoIncrementedKey() )
+	public void setCounter${entity.name}(RedisAtomicLong counter${entity.name}) {
+		this.counter${entity.name} = counter${entity.name};
 	}
 #end
 	// -------------------------------------------------------------------------------------
-	// Persistence interface implementations
+	// Utils methods
 	// -------------------------------------------------------------------------------------
 	/**
 	 * Creates a new bean instance and set its primary key value(s)
@@ -73,24 +75,24 @@ public class $springRedisServiceClass implements $persistenceService {
 	//-------------------------------------------------------------------------------------
 	@Override
 	public long countAll() {
-		return redisOps.opsForHash().size(KEY);
+		return redisTemplate.opsForHash().size(KEY);
 	}
 	
 	@Override
 	public ${recordClass} create(${recordClass} record) {
 #if( $entity.hasAutoIncrementedKey() )
-		${entity.autoincrementedKeyAttribute.databaseType} ${entity.autoincrementedKeyAttribute.name} = ${entity.name}Counter.incrementAndGet();
-		record.${entity.autoincrementedKeyAttribute.databaseType.setter}(${entity.autoincrementedKeyAttribute.name});
+		${entity.autoincrementedKeyAttribute.wrapperType} ${entity.autoincrementedKeyAttribute.name} = (int)counter${entity.name}.incrementAndGet();
+		record.${entity.autoincrementedKeyAttribute.setter}(${entity.autoincrementedKeyAttribute.name});
 #end
 		String key = buildRedisKey(record);
-		redisOps.opsForHash().put(KEY, key, record);
+		redisTemplate.opsForHash().put(KEY, key, record);
 		return record;
 	}
 
 	@Override
 	public boolean delete(${recordClass} record) {
 		String key = buildRedisKey(record);
-		long r = redisOps.opsForHash().delete(KEY, key);
+		long r = redisTemplate.opsForHash().delete(KEY, key);
 		return r > 0;
 	}
 
@@ -98,27 +100,27 @@ public class $springRedisServiceClass implements $persistenceService {
 	public boolean deleteById($fn.argumentsListWithWrapperType($keyFields)) {
 		${recordClass} record = newInstanceWithPrimaryKey($fn.argumentsList($keyFields));
 		String key = buildRedisKey(record);
-		long r = redisOps.opsForHash().delete(KEY, key);
+		long r = redisTemplate.opsForHash().delete(KEY, key);
 		return r > 0;
 	}
 
 	@Override
 	public boolean exists(${recordClass} record) {
 		String key = buildRedisKey(record);
-		return redisOps.opsForHash().hasKey(KEY, key);
+		return redisTemplate.opsForHash().hasKey(KEY, key);
 	}
 
 	@Override
 	public boolean exists($fn.argumentsListWithWrapperType($keyFields)) {
 		${recordClass} record = newInstanceWithPrimaryKey($fn.argumentsList($keyFields));
 		String key = buildRedisKey(record);
-		return redisOps.opsForHash().hasKey(KEY, key);
+		return redisTemplate.opsForHash().hasKey(KEY, key);
 	}
 
 	@Override
 	public List<${recordClass}> findAll() {
 		List<${recordClass}> recordList = new ArrayList<${recordClass}>();
-		for (Object o : redisOps.opsForHash().values(KEY)) {
+		for (Object o : redisTemplate.opsForHash().values(KEY)) {
 			recordList.add((${recordClass}) o);
 		}
 		return recordList;
@@ -128,20 +130,20 @@ public class $springRedisServiceClass implements $persistenceService {
 	public ${recordClass} findById($fn.argumentsListWithWrapperType($keyFields)) {
         ${recordClass} record = newInstanceWithPrimaryKey($fn.argumentsList($keyFields));
 		String key = buildRedisKey(record);
-		return (${recordClass}) redisOps.opsForHash().get(KEY, key);
+		return (${recordClass}) redisTemplate.opsForHash().get(KEY, key);
 	}
 
 	@Override
 	public ${recordClass} save(${recordClass} record) {
 		String key = buildRedisKey(record);
-		redisOps.opsForHash().put(KEY,key, record);
+		redisTemplate.opsForHash().put(KEY,key, record);
 		return record;
 	}
 
 	@Override
 	public boolean update(${recordClass} record) {
 		String key = buildRedisKey(record);
-		redisOps.opsForHash().put(KEY, key, record);
+		redisTemplate.opsForHash().put(KEY, key, record);
 		return true;
 	}
 }

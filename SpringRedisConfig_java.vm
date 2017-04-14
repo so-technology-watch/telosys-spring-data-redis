@@ -1,6 +1,9 @@
-package ${target.javaPackageFromFolder($TEST_SRC)};
+#parse("include/java_header.vm")
+
+package ${target.javaPackageFromFolder($SRC)};
 
 import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.ComponentScan;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.data.redis.connection.jedis.JedisConnectionFactory;
 import org.springframework.data.redis.core.RedisTemplate;
@@ -9,6 +12,7 @@ import org.springframework.data.redis.serializer.StringRedisSerializer;
 import org.springframework.data.redis.support.atomic.RedisAtomicLong;
 
 @Configuration
+@ComponentScan("org.demo")
 public class SpringRedisConfig {
 	@Bean
 	public JedisConnectionFactory connectionFactory() {

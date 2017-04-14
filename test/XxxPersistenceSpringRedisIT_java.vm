@@ -1,13 +1,20 @@
 
 package ${target.javaPackageFromFolder($TEST_SRC)};
 
-import org.demo.persistence.${entity.name}Persistence ;
 import org.demo.persistence.${entity.name}PersistenceGenericTest;
-import org.demo.persistence.impl.springRedis.commons.SpringLoadConfig;
 import org.junit.After;
-import org.junit.Before;
 import org.junit.Test;
 import org.springframework.data.redis.core.RedisTemplate;
+import org.junit.runner.RunWith;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.test.annotation.DirtiesContext;
+import org.springframework.test.annotation.DirtiesContext.ClassMode;
+import org.springframework.test.context.ContextConfiguration;
+import org.springframework.test.context.junit4.SpringJUnit4ClassRunner;
+import org.demo.persistence.impl.springRedis.commons.SpringRedisConfig;
+#if( $entity.hasAutoIncrementedKey() )
+import org.springframework.data.redis.support.atomic.RedisAtomicLong;
+#end
 
 
 /**
@@ -16,25 +23,18 @@ import org.springframework.data.redis.core.RedisTemplate;
  * @author Telosys Tools
  *
  */
+@RunWith(SpringJUnit4ClassRunner.class)
+@ContextConfiguration(classes = SpringRedisConfig.class)
+@DirtiesContext(classMode = ClassMode.AFTER_CLASS)
 public class ${entity.name}PersistenceSpringRedisIT extends ${entity.name}PersistenceGenericTest {
     
-	private ${entity.name}Persistence persistenceService;
+	@Autowired
 	private RedisTemplate<String, Object> redisTemplate;
 	private static final String KEY = "${entity.name}";
 #if( $entity.hasAutoIncrementedKey() )
+	@Autowired
 	private RedisAtomicLong redisAt ;
 #end
-
-	@Before
-	public void setUp() throws Exception {
-		redisTemplate = SpringLoadConfig.getRedistemplate();
-#if( $entity.hasAutoIncrementedKey() )
-		redisAt= SpringLoadConfig.getRedisAtomicLong();
-		persistenceService = new ${entity.name}PersistenceRedis(redisTemplate,redisAt);
-#else
-		persistenceService = new ${entity.name}PersistenceSpringRedis(redisTemplate);
-#end
-	}
 
 	@After
 	public void tearDown() throws Exception {
@@ -43,7 +43,14 @@ public class ${entity.name}PersistenceSpringRedisIT extends ${entity.name}Persis
 
 	@Test
 	public void testPersistenceService() throws Exception {
-    	testPersistenceService(persistenceService);
+		${entity.name}PersistenceSpringRedis persistence = new ${entity.name}PersistenceSpringRedis();
+		persistence.setRedisTemplate(redisTemplate);
+#if( $entity.hasAutoIncrementedKey() )
+		persistence.setCounter${entity.name}(redisAt);
+		testPersistenceServiceWithAutoincrementedKey(persistence);
+#else
+    	testPersistenceService(persistence);
+#end
 	}
 }
 
